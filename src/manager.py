@@ -34,13 +34,31 @@ class MCPConnectionManager:
             return  # Already connected
 
         from contextlib import AsyncExitStack
+        import os
 
         self._exit_stack = AsyncExitStack()
         await self._exit_stack.__aenter__()
 
+        # Expand environment variables in args
+        expanded_args = []
+        for arg in self.args:
+            if isinstance(arg, str):
+                # Expand environment variables from both self.env and os.environ
+                expanded_arg = arg
+                # First try self.env (MCP-specific env vars)
+                if self.env:
+                    for key, value in self.env.items():
+                        expanded_arg = expanded_arg.replace(f'${key}', value)
+                # Then try os.environ (system env vars)
+                for key, value in os.environ.items():
+                    expanded_arg = expanded_arg.replace(f'${key}', value)
+                expanded_args.append(expanded_arg)
+            else:
+                expanded_args.append(arg)
+
         server_params = StdioServerParameters(
             command=self.command,
-            args=self.args,
+            args=expanded_args,
             env=self.env,
         )
 
